@@ -1,0 +1,6 @@
+#N canvas 508 22 666 620 10;
+#X obj 39 31 dumpOSC 5555;
+#X obj 77 70 s rcvOSC;
+#X obj 39 103 print rcvOSC;
+#X connect 0 0 1 0;
+#X connect 0 0 2 0;

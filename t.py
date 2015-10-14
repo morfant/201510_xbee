@@ -1,5 +1,6 @@
 #!/user/bin/python
 
+import time
 import sys
 import OSC
 import wiringpi2
@@ -15,9 +16,11 @@ if wiringpi2.wiringPiSetup() == -1:
     sys.exit()
 
 
-msg = "hello"
-wiringpi2.serialPuts(serial, msg)
-print("serial send...")
-print(msg)
+msg = "2" #set data 
+
+while True:
+    wiringpi2.serialPuts(serial, msg)
+    print(msg)
+    time.sleep(0.1) #wait 0.1 sec
 
 wiringpi2.serialClose(serial)

@@ -32,17 +32,22 @@ SynthDef.new(\ti,
 ).add;
 )
 
+1.asDigit
+1.asAscii
+'1'.asDigits
 
-
+2007.asDigits(10);
 
 (
 a = Synth(\di);b = Synth(\ti);
 
 p = OSCFunc({|msg, time, addr, recvPort|
 	var v = msg[1].asInteger.abs;
-	var m = msg[2].asInteger.abs;
+//	var m = msg[2].asInteger.abs;
 //	msg[1].class.postln;
 	("v: " + v).postln;
+//	("m: " + m).postln;
+
 	if (v < 60, {
 		b.set(\amp, 0);
 		a.set(\amp, 1);
@@ -53,5 +58,5 @@ p = OSCFunc({|msg, time, addr, recvPort|
 		b.set(\amp, 1);
 		b.set(\freq, 1 + ((v)/10));
 	});
-}, '/xbee');
+}, '/dist_AB');
 )

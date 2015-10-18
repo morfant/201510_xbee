@@ -30,7 +30,7 @@ XBee xbee = XBee();
 unsigned long start = millis();
 
 // allocate two bytes for to hold a 10-bit analog reading
-uint8_t payload[] = { 1, 'c' };
+uint8_t payload[] = { 2, 'c' };
 
 // with Series 1 you can use either 16-bit or 64-bit addressing
 

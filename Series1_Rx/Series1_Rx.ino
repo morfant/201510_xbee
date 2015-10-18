@@ -95,7 +95,7 @@ void loop() {
 
     while(1){
         //TX
-/*
+
         //Broad cast with ID
         payload[0] = ID;
         payload[1] = NOT_TO_CENTER;
@@ -103,8 +103,8 @@ void loop() {
         xbee.send(tx);
 
         // flash TX indicator
-        flashLed(statusLed, 1, 100);
-  */    
+        flashLed(statusLed, 1, 10);
+
         //RX : read packet from everywhere 
 
         xbee.readPacket();
@@ -159,7 +159,7 @@ void loop() {
                 
 
                 // flash TX indicator
-                flashLed(statusLed, 1, 100);
+                flashLed(statusLed, 1, 10);
             }
             
             flashLed(statusLed, 1, 10);

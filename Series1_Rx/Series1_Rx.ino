@@ -31,6 +31,7 @@ Error led is flashed if an unexpected packet is received
 #define SENDER_ID 'b'
 #define STARTUP_DELAY 15000
 #define NOT_TO_CENTER 'n'
+//#define NOT_TO_CENTER 'b'
 #define RSSI_DIR 0xab
 
 
@@ -38,7 +39,8 @@ XBee xbee = XBee();
 
 //TX
 uint8_t payload[] = { ID, 0 }; //ID / to Center or Not
-Tx16Request tx = Tx16Request(0x1, payload, sizeof(payload));
+XBeeAddress64 addr64 = XBeeAddress64(0x00000000, 0x0000ffff); //Broadcast addr
+Tx64Request tx = Tx64Request(addr64, payload, sizeof(payload));
 
 
 //RX
@@ -93,6 +95,7 @@ void loop() {
 
     while(1){
         //TX
+/*
         //Broad cast with ID
         payload[0] = ID;
         payload[1] = NOT_TO_CENTER;
@@ -101,19 +104,19 @@ void loop() {
 
         // flash TX indicator
         flashLed(statusLed, 1, 100);
-      
+  */    
         //RX : read packet from everywhere 
 
         xbee.readPacket();
     
         if (xbee.getResponse().isAvailable()) {
-
-#ifdef DEBUG
-          // got something
-            Serial.println("Serial comming");
-#endif
           
             if (xbee.getResponse().getApiId() == RX_16_RESPONSE || xbee.getResponse().getApiId() == RX_64_RESPONSE) {
+
+#ifdef DEBUG
+            // got something
+            Serial.println("Serial comming");
+#endif
             
                 // got a rx packet
                 if (xbee.getResponse().getApiId() == RX_16_RESPONSE) {
@@ -140,6 +143,9 @@ void loop() {
                 
             // need to get data from ID 'b' only
             if (senderID == SENDER_ID) {
+#ifdef DEBUG              
+                Serial.print("Matching sender ID arrived.");
+#endif              
                 // forward to the RSSI to CENTER
                 // payload[0] 
                 // 0xab : a received, b sent rssi. 
@@ -149,6 +155,8 @@ void loop() {
                 payload[1] = rssi;
           
                 xbee.send(tx);
+                Serial.print("sending to Center finished.\n");
+                
 
                 // flash TX indicator
                 flashLed(statusLed, 1, 100);

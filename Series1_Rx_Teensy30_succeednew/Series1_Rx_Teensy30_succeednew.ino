@@ -27,6 +27,7 @@ Error led is flashed if an unexpected packet is received
 
 #define DEBUG
 
+#define HWSERIAL Serial3
 #define ID 'a'
 #define SENDER_ID 'b'
 #define STARTUP_DELAY 15000
@@ -36,7 +37,6 @@ Error led is flashed if an unexpected packet is received
 
 
 XBee xbee = XBee();
-HardwareSerial Uart = HardwareSerial();
 
 //TX
 uint8_t payload[] = { ID, 0 }; //ID / to Center or Not
@@ -51,8 +51,8 @@ Rx16Response rx16 = Rx16Response();
 Rx64Response rx64 = Rx64Response();
 
 
-int txLed = 11;
-int rxLed = 12;
+int txLed = 13;
+int rxLed = 16;
 int but = 0;
 //int dataLed = 10;
 
@@ -85,10 +85,9 @@ void setup() {
     Serial.begin(9600); //start USB serial
   
   
-    // start serial1 for xbee UART serial
-//    Uart.begin(57600); // Not working
-    Uart.begin(58824); // Working with xbee(57600)
-    xbee.setSerial(Uart);
+    // start HWSERIAL for xbee UART serial
+    HWSERIAL.begin(57600);
+    xbee.setSerial(HWSERIAL);
   
     flashLed(txLed, 1, 50);
     flashLed(rxLed, 1, 50);    

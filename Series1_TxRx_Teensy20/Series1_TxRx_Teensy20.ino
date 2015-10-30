@@ -18,8 +18,10 @@
  */
 
 #include <XBee.h>
+#define MODULE_NUM 1 // Set module number (0, 1, 2)
+
 #define DEBUG
-#define MODULE_NUM 1 // Set module number
+#define RSPTIME 100
 #define STARTUP_DELAY 15000
 
 uint8_t senderID[] = {'A', 'B', 'C'};
@@ -34,7 +36,7 @@ HardwareSerial Uart = HardwareSerial(); // For Teensy 2.0 only.
 uint8_t payload[] = { senderID[MODULE_NUM] };
 uint8_t payloadToC[] = { senderID[MODULE_NUM], 0 };
 
-Tx16Request tx = Tx16Request(addr_dest[MODULE_NUM], payload, sizeof(payload)); // to next module
+Tx16Request tx = Tx16Request(addr_dest[(MODULE_NUM+1)%3], payload, sizeof(payload)); // to next module
 Tx16Request txC = Tx16Request(addr_dest[3], payloadToC, sizeof(payloadToC)); // to center module
 
 
@@ -54,6 +56,8 @@ int but = 0;
 uint8_t getSenderID = 0;
 uint8_t rssi = 0;
 unsigned long nextTime = 0;
+boolean inRead = true;
+boolean sendable = true;
 
 
 // Functions
@@ -100,31 +104,30 @@ void loop() {
     while(1){
       
       // Receive from previous module
+      
       xbee.readPacket();
       
+      
+      
+      
         if (xbee.getResponse().isAvailable()) {
-            if (xbee.getResponse().getApiId() == RX_16_RESPONSE || xbee.getResponse().getApiId() == RX_64_RESPONSE) {
+      Serial.println("Waiting...");      
+            inRead = true;
+            if (xbee.getResponse().getApiId() == RX_16_RESPONSE) {
 
 #ifdef DEBUG
             // got something
-            Serial.println("Serial datas are comming.");            
+              Serial.println("Serial datas are comming.");            
 #endif
-            getSenderID = 0;
-            rssi = 0;
+              getSenderID = 0;
+              rssi = 0;
 
             // got a rx packet
-            if (xbee.getResponse().getApiId() == RX_16_RESPONSE) {
               flashLed(rxLed, 1, 10);                  
               xbee.getResponse().getRx16Response(rx16);
               getSenderID = rx16.getData(0);
               rssi = rx16.getRssi();
-            } else {
-              flashLed(rxLed, 1, 10);                                
-              xbee.getResponse().getRx64Response(rx64);
-              getSenderID = rx64.getData(0);
-              rssi = rx64.getRssi();        
-            }
-
+              inRead = false;
 
 #ifdef DEBUG
             Serial.print("senderID: "); Serial.println(getSenderID); //received as Decimal Number
@@ -135,34 +138,59 @@ void loop() {
               Serial.println("Error reading packet.  Error code: ");  
               Serial.println(xbee.getResponse().getErrorCode());
             }
-        };
-
+            
+        }
 
 // Send to Center module
 
-        if (getSenderID == senderID[(MODULE_NUM+2)%3]){
-            // Receive msg from previous module.
-            payloadToC[0] = distID[MODULE_NUM];
-            payloadToC[1] = rssi;
-            
+        if (inRead == false){
+          if (getSenderID == senderID[(MODULE_NUM+2)%3]){
+              // Receive msg from previous module.
+              payloadToC[0] = distID[MODULE_NUM];
+              payloadToC[1] = rssi;
+              
+          }else{
+              // Didn't receive msg from previous module.
+              payloadToC[0] = distID[MODULE_NUM];
+              payloadToC[1] = 0;
+          }
+      
+         // Buttom push check 
+         if(!digitalRead(but)){
+             // Do something special.
+          }
+  
+          xbee.send(txC);
+          flashLed(txLed, 1, 10);
+  
+  
+  // Send to next module
+          payload[0] = senderID[MODULE_NUM];
+          xbee.send(tx);
+          flashLed(txLed, 1, 10);
+        }
+      }
+      
+      
+      
+// after sending a tx request, we expect a status response
+// wait up to 5 seconds for the status response
+
+        if (xbee.readPacket(RSPTIME)) {
+          TxStatusResponse txStatus = TxStatusResponse();          
+        // got a response!
+        // should be a znet tx status 
+          if (xbee.getResponse().getApiId() == TX_STATUS_RESPONSE) {
+            xbee.getResponse().getZBTxStatusResponse(txStatus);
+            // get the delivery status, the fifth byte
+            if (txStatus.getStatus() == SUCCESS) {
+               // another msg sendable
+               flashLed(rxLed, 1, 10);
+               sendable = true;
+            }
+          }  
         }else{
-            // Didn't receive msg from previous module.
-            payloadToC[0] = distID[MODULE_NUM];
-            payloadToC[1] = 0;
+          sendable = true;          
         }
-    
-       // Buttom push check 
-       if(!digitalRead(but)){
-           // Do something special.
-        }
-
-        xbee.send(txC);
-        flashLed(txLed, 1, 10);
-
-
-// Send to next module
-        payload[0] = senderID[MODULE_NUM];
-        xbee.send(tx);
-        flashLed(txLed, 1, 10);
-   }
+      
 }

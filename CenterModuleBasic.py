@@ -5,62 +5,60 @@ from xbee import XBee
 
 
 #OSC
-send_addr = '192.168.0.2', 57120
+send_addr = 'localhost', 5555
 c = OSC.OSCClient()
 c.connect(send_addr)
-
 oscmsg = OSC.OSCMessage()
-oscmsg.setAddress("/xbee")
 
 serial_port = serial.Serial('/dev/ttyAMA0', 57600)
 xbee = XBee(serial_port)
 
 # OSC send enable : 1
-osc = 1
+oscSendEnable = 1
 
 while True:
     try:
 
 
         #TX - Temporary
-        #'bn' is - b: from 'b', n: not to CENTER just to 'a'.
-        xbee.tx(dest_addr='\xff\xff', data='bn')
-        #time.sleep(0.01) #wait 0.001 sec
+#        xbee.tx(dest_addr='\xff\xff', data='bn')
  
 
         #RX
         get = xbee.wait_read_frame()
-        #print(get)
-        data = get['rf_data'][0]
-        print("data: ", data)
-        fwdedrssi = ord(get['rf_data'][1])
-        print("rssi: ", fwdedrssi)
-        
-        if data == '\xab':
-            #send OSC to PureData (data, rssi)
-            oscmsg.setAddress("/dist_AB")
-            print("send OSC to A-B\n")
-        elif data == '\xbc':
-            oscmsg.setAddress("/dist_BC")
-            print("send OSC to B-C\n")
-        elif data == '\xca':
-            oscmsg.setAddress("/dist_CA")
-            print("send OSC to C-A\n")
-        else:
-            fwdedrssi = 0
-            oscmsg.setAddress("/nowhere")
-            #print("data: ", data)
-            print("Wrong distance category.\n")
-        
-        #append distance category and rssi of it.
-        #oscmsg.append(data)
-        oscmsg.append(fwdedrssi)
 
-        #send and clear
-        if osc == 1 and fwdedrssi != 0:
+
+        fwRSSI = list()
+        rssi = list()
+        idStr = ["3-1", "1-2", "2-3"]
+
+        distID = ord(get['rf_data'][0])
+        rssiChk = ord(get['rf_data'][1])
+
+        if rssiChk == 0 :
+            print(get)
+            print("DistanceID: ", idStr[distID-1], "/ forwarded RSSI: ", rssiChk)
+            print("RSSI: ", ord(get['rssi'][0]))
+            continue
+
+
+        fwRSSI[distID-1] = ord(get['rf_data'][1])
+        rssi[distID-1] = ord(get['rssi'][0])
+
+        #send OSC to PureData (data, rssi)
+        oscmsg.setAddress("/dist_" + idStr[distID-1])
+        oscmsg.append(fwRSSI[distID-1])
+        oscmsg.append(rssi[distID-1])
+
+        if oscSendEnable :
             c.send(oscmsg)
-            oscmsg.clearData()
-                
+
+        oscmsg.clearData()
+
+        print("DistanceID: ", idStr[distID-1], "/ forwarded RSSI: ", fwRSSI[distID-1])
+        print("RSSI: ", rssi[distID-1])
+
+       
     except KeyboardInterrupt:
         break
 

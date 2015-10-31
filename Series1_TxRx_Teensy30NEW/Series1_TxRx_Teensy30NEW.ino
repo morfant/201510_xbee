@@ -65,6 +65,7 @@ uint8_t getSenderID = 0;
 uint8_t rssi = 0;
 unsigned long nextTime = 0;
 boolean reachedGood = false;
+boolean justStart = true;
 
 
 // Functions
@@ -104,6 +105,18 @@ void setup() {
 // continuously reads packets, looking for RX16 or RX64
 void loop() {
     delay(STARTUP_DELAY); // Is it needed?
+    
+    // Trigger networking at first time.
+    if (justStart){
+        xbee.send(tx);
+        justStart = false;
+    }
+
+    // Restart button
+    while(1){
+      if (!digitalRead(but)){
+        xbee.send(tx);
+      }
 
     while(1){
 
@@ -159,6 +172,16 @@ void loop() {
             }
             
         }
+
+
+// Response to CENTER node check msg
+        if (getSenderID != 0 && getSenderID == 'N'){
+            payloadToC[0] = distID[MODULE_NUM]; // one of 1, 2, 3
+            payloadToC[1] = 'x';
+            xbee.send(txC);
+            flashLed(txLed, 1, 10);
+        }
+
 
 // Send to Center module
 
@@ -218,12 +241,8 @@ void loop() {
                 reachedGood = false;
                 continue;
               }
-            }
-            
-            
-            
-            
+            }           
           }
-          
         }
       }
+    }

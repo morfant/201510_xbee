@@ -24,9 +24,9 @@
 2 : 3rd module (0x2C2C)
 3 : CENTER MODULE (0x3D3D)
 */
-#define PREV_MODULE 0 // Set previous module number
-#define MODULE_NUM 1 // Set this module number
-#define NEXT_MODULE 2 // Set next module number
+#define PREV_MODULE 2 // Set previous module number
+#define MODULE_NUM 0 // Set this module number
+#define NEXT_MODULE 1 // Set next module number
 
 
 #define DEBUG
@@ -66,6 +66,7 @@ uint8_t rssi = 0;
 unsigned long nextTime = 0;
 boolean reachedGood = false;
 boolean justStart = true;
+boolean joined = false;
 
 
 // Functions
@@ -117,8 +118,15 @@ void loop() {
 
     // Restart button
     while(1){
+
       if (!digitalRead(but)){
+        payloadToC[0] = distID[MODULE_NUM]; // one of 1, 2, 3
+        payloadToC[1] = 'R';
+        xbee.send(txC);
+        
+        payload[0] = 'j'; // to re join
         xbee.send(tx);
+        
       }
       
       
@@ -175,20 +183,47 @@ void loop() {
             
         }
 
-// Response to CENTER node check msg
-        if (getSenderID != 0 && getSenderID == 'N'){
-            payloadToC[0] = distID[MODULE_NUM]; // one of 1, 2, 3
-            payloadToC[1] = 'x';
-            xbee.send(txC);
-            flashLed(txLed, 1, 10);
+
+
+// Response to changeNextNode() from CENTER
+        if (getSenderID == 'I'){ // from CENTER, 'I'gnoring a module
+            // TX ADDR changed.
+            payload[0] = 'i';
+            tx = Tx16Request(addr_dest[NEXT_MODULE], payload, sizeof(payload)); // to next module
+            xbee.send(tx);
+        }
+        
+
+        if (getSenderID == 'J'){ // from CENTER, 'J'oining a module
+            // TX ADDR changed.
+            payload[0] = 'j';
+            tx = Tx16Request(addr_dest[NEXT_MODULE], payload, sizeof(payload)); // to next module
+            xbee.send(tx);
         }
 
+
+// Response to 'I'gnoreing from another ALIVE module
+        if (getSenderID == 'i'){
+            // TX ADDR changed.
+            payload[0] = senderID[MODULE_NUM]; // one of 'A', 'B', 'C'
+            tx = Tx16Request(addr_dest[PREV_MODULE], payload, sizeof(payload)); // to next module
+            xbee.send(tx);
+        }
+
+// Response to 'J'oining from another ALIVE module
+        if (getSenderID == 'j'){ // from CENTER, 'J'oining a module
+            // TX ADDR changed.
+            payload[0] = senderID[MODULE_NUM]; // one of 'A', 'B', 'C'
+            tx = Tx16Request(addr_dest[NEXT_MODULE], payload, sizeof(payload)); // to next module
+            xbee.send(tx);
+        }
 
 
 // Send to Center module
 
 //        if (inRead == false){
-          if (getSenderID != 0 && getSenderID == senderID[PREV_MODULE]){
+          if (getSenderID == senderID[PREV_MODULE] || getSenderID == senderID[NEXT_MODULE]){
+            joined = true;
               
               // Receive msg from previous module 
               // Send to CENTER module.

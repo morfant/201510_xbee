@@ -33,6 +33,8 @@
 #define HWSERIAL Serial3 //Teensy 3.0 only
 #define DEBUG
 #define RSPTIME 100
+#define RX_RETRY_TIME 100
+#define RX_FAIL_LIMIT 10
 #define STARTUP_DELAY 1000
 
 uint8_t senderID[] = {'A', 'B', 'C', 'D'}; // 'D' is Center module.
@@ -42,7 +44,7 @@ uint16_t addr_dest[]= {0x0A0A, 0x1B1B, 0x2C2C, 0x3D3D};
 XBee xbee = XBee();
 
 // TX
-uint8_t payload[] = { senderID[MODULE_NUM] };
+uint8_t payload[] = { senderID[MODULE_NUM], 0 };
 uint8_t payloadToC[] = { senderID[MODULE_NUM], 0 };
 
 Tx16Request tx = Tx16Request(addr_dest[NEXT_MODULE], payload, sizeof(payload)); // to next module
@@ -63,9 +65,12 @@ int but = 0;
 // Variables
 uint8_t getSenderID = 0;
 uint8_t rssi = 0;
-unsigned long nextTime = 0;
+unsigned long delayedTime = 0;
+unsigned long lastSucceedTime = 0;
 boolean reachedGood = false;
 boolean justStart = true;
+boolean isJoined = false;
+int rxFailNum = 0;
 
 
 // Functions
@@ -114,36 +119,28 @@ void loop() {
 
     // Restart button
     while(1){
+
       if (!digitalRead(but)){
+        payloadToC[0] = distID[MODULE_NUM]; // one of 1, 2, 3
+        payloadToC[1] = 'R';
+        xbee.send(txC);
+        
+        payload[0] = 'j'; // to re join
         xbee.send(tx);
+        
       }
 
-    while(1){
-
-      // Receive from previous module      
       xbee.readPacket();
       
         if (xbee.getResponse().isAvailable()) {
+#ifdef DEBUG          
           Serial.println("Waiting...");                
           Serial.println("--------------------Available");
+#endif
           getSenderID = 0;
           rssi = 0;
           reachedGood = false;
-//
-//#ifdef DEBUG
-//              Serial.print("reachedGood: ");
-//              Serial.println(reachedGood);
-//              
-//              Serial.print("getSenderID: ");
-//              Serial.println(getSenderID);
-//
-//              Serial.print("rssi: ");
-//              Serial.println(rssi);
-//              
-//#endif
-//
-//          
-//          
+    
             if (xbee.getResponse().getApiId() == RX_16_RESPONSE) {
 
 #ifdef DEBUG
@@ -161,7 +158,7 @@ void loop() {
               
 
 #ifdef DEBUG
-            Serial.print("senderID: "); Serial.println(getSenderID); //received as Decimal Number
+            Serial.print("senderID: "); Serial.println(char(getSenderID)); //received as Decimal Number
             Serial.print("RSSI: "); Serial.println(rssi);
        
 #endif
@@ -172,21 +169,47 @@ void loop() {
             }
             
         }
+      
 
 
-// Response to CENTER node check msg
-        if (getSenderID != 0 && getSenderID == 'N'){
-            payloadToC[0] = distID[MODULE_NUM]; // one of 1, 2, 3
-            payloadToC[1] = 'x';
-            xbee.send(txC);
-            flashLed(txLed, 1, 10);
+// Response to changeNextNode() from CENTER
+        if (getSenderID == 'I'){ // from CENTER, 'I'gnoring a module
+            // TX ADDR changed.
+            payload[0] = 'i';
+            tx = Tx16Request(addr_dest[NEXT_MODULE], payload, sizeof(payload)); // to next module
+            xbee.send(tx);
+        }
+        
+
+        if (getSenderID == 'J'){ // from CENTER, 'J'oining a module
+            // TX ADDR changed.
+            payload[0] = 'j';
+            tx = Tx16Request(addr_dest[NEXT_MODULE], payload, sizeof(payload)); // to next module
+            xbee.send(tx);
         }
 
+// Response to 'I'gnoreing from another ALIVE module
+        if (getSenderID == 'i'){
+            // TX ADDR changed.
+            payload[0] = senderID[MODULE_NUM]; // one of 'A', 'B', 'C'
+            tx = Tx16Request(addr_dest[PREV_MODULE], payload, sizeof(payload)); // to next module
+            xbee.send(tx);
+        }
+
+// Response to 'J'oining from another ALIVE module
+        if (getSenderID == 'j'){ // from CENTER, 'J'oining a module
+            // TX ADDR changed.
+            payload[0] = senderID[MODULE_NUM]; // one of 'A', 'B', 'C'
+            tx = Tx16Request(addr_dest[NEXT_MODULE], payload, sizeof(payload)); // to next module
+            xbee.send(tx);
+        }
+
+       
 
 // Send to Center module
 
-//        if (inRead == false){
-          if (getSenderID != 0 && getSenderID == senderID[PREV_MODULE]){
+          if (getSenderID == senderID[PREV_MODULE] || getSenderID == senderID[NEXT_MODULE]){
+            isJoined = true;
               
               // Receive msg from previous module 
               // Send to CENTER module.
@@ -220,6 +243,8 @@ void loop() {
 #endif                     
                      flashLed(txLed, 1, 10);
                      reachedGood = true;
+//                     lastSucceedTime = millis();
+                     
                      break;
                   }else{
                     // get response but it is not SUCCESS
@@ -233,16 +258,20 @@ void loop() {
                   continue;
                 }
               }else{
+#ifdef DEBUG                
                 Serial.println("In else of while loop.");
+#endif                
                 //Didn't readPacket at all after RSPTIME.
                 // Send again
                 xbee.send(tx);
-//                flashLed(txLed, 1, 10);
                 reachedGood = false;
                 continue;
               }
-            }           
+            }
           }
-        }
+//        }
+        
+        
+        
       }
     }

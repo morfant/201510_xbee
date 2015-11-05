@@ -5,7 +5,8 @@ from xbee import XBee,ZigBee
 
 
 #OSC
-send_addr = 'localhost', 5555
+send_addr = 'localhost', 5557
+#send_addr = '192.168.0.2', 5555
 c = OSC.OSCClient()
 c.connect(send_addr)
 oscmsg = OSC.OSCMessage()
@@ -18,7 +19,7 @@ RX_TIME_LIMIT = 100
 DELAY_NUM_LIMIT = 10
 
 # OSC send enable : 1
-oscSendEnable = 0
+oscSendEnable = 1
 dest_addrs = ['\x0a\x0a', '\x1b\x1b', '\x2c\x2c']
 dest_IDs = ['A', 'B', 'C']
 nodeStatus = [1, 1, 1]
@@ -64,8 +65,17 @@ def dataProcess(data) :
 
 
     #send OSC to PureData (data, rssi)
-    oscmsg.setAddress("/dist_" + idStr[distID-1])
+    oscmsg.setAddress("/dist")
+    oscmsg.append(distID-1)
     oscmsg.append(fwRSSI[distID-1])
+
+    if oscSendEnable :
+        c.send(oscmsg)
+
+    oscmsg.clearData()
+
+    oscmsg.setAddress("/rssi")
+    oscmsg.append(distID-1)
     oscmsg.append(rssi[distID-1])
 
     if oscSendEnable :
